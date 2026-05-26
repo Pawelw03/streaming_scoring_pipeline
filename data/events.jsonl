@@ -1,0 +1,12 @@
+{"event_id": "e001", "customer_id": "C-WHALE", "event_time": "2026-05-20T10:00:00Z", "event_type": "transaction", "amount": 5000.0}
+{"event_id": "e002", "customer_id": "C-WHALE", "event_time": "2026-05-21T11:00:00Z", "event_type": "transaction", "amount": 7500.0}
+{"event_id": "e003", "customer_id": "C-WHALE", "event_time": "2026-05-22T09:30:00Z", "event_type": "transaction", "amount": 6000.0}
+{"event_id": "e004", "customer_id": "C-MICRO", "event_time": "2026-05-20T14:00:00Z", "event_type": "transaction", "amount": 1.50}
+{"event_id": "e005", "customer_id": "C-MICRO", "event_time": "2026-05-20T14:05:00Z", "event_type": "transaction", "amount": 2.00}
+{"event_id": "e006", "customer_id": "C-MICRO", "event_time": "2026-05-20T14:10:00Z", "event_type": "transaction", "amount": 1.25}
+{"event_id": "e006", "customer_id": "C-MICRO", "event_time": "2026-05-20T14:10:00Z", "event_type": "transaction", "amount": 1.25}
+{"event_id": "e007", "customer_id": "C-AVERAGE", "event_time": "2026-05-22T08:00:00Z", "event_type": "transaction", "amount": 45.0}
+{"event_id": "e008", "customer_id": "C-AVERAGE", "event_time": "2026-05-23T18:00:00Z", "event_type": "transaction", "amount": 60.0}
+{"event_id": "e009", "customer_id": "C-OLD-PRUNE", "event_time": "2026-01-01T10:00:00Z", "event_type": "transaction", "amount": 900.0}
+{"event_id": "e010", "customer_id": "C-OLD-PRUNE", "event_time": "2026-05-24T10:00:00Z", "event_type": "transaction", "amount": 50.0}
+{"event_id": "e011", "customer_id": "C-NEW", "event_time": "2026-05-24T12:00:00Z", "event_type": "transaction", "amount": 15.0}
