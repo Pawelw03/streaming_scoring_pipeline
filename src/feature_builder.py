@@ -1,4 +1,5 @@
 import json
+import os
 import logging
 from datetime import datetime, timedelta
 
@@ -7,9 +8,61 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 class FeatureBuilder:
-    def __init__(self):
+    def __init__(self, state_file="artifacts/state.json"):
         # Simulates a DynamoDB state store. Keys are customer_ids.
         self.state = {}
+        self.state_file = state_file
+        self.load_state()
+
+    def load_state(self):
+        """Loads state from disk to simulate persistent database storage."""
+        if os.path.exists(self.state_file):
+            try:
+                with open(self.state_file, "r") as f:
+                    self.state = json.load(f)
+
+                    # Reconstruct complex Python objects (Sets and Datetimes)
+                    for cust_id, state_data in self.state.items():
+                        # 1. Rebuild the set of processed_ids
+                        if "processed_ids" in state_data:
+                            state_data["processed_ids"] = set(state_data["processed_ids"])
+
+                        # 2. Rebuild the watermark datetime
+                        if "latest_watermark" in state_data and isinstance(state_data["latest_watermark"], str):
+                            try:
+                                state_data["latest_watermark"] = datetime.fromisoformat(state_data["latest_watermark"])
+                            except ValueError:
+                                pass
+
+                        # 3. Rebuild the timestamps in the events list
+                        if "events" in state_data:
+                            for txn in state_data["events"]:
+                                if "time" in txn and isinstance(txn["time"], str):
+                                    try:
+                                        txn["time"] = datetime.fromisoformat(txn["time"])
+                                    except ValueError:
+                                        pass
+            except json.JSONDecodeError:
+                self.state = {}
+
+    def save_state(self):
+        """Saves current state to disk (Simulating a DynamoDB PutItem)."""
+        import copy
+
+        # Define a custom JSON encoder to handle Sets and Datetimes seamlessly
+        class StateEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, set):
+                    return list(obj)
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                return super().default(obj)
+
+        os.makedirs(os.path.dirname(self.state_file), exist_ok=True)
+
+        with open(self.state_file, "w") as f:
+            # The cls=StateEncoder tells json.dump how to handle our complex objects automatically
+            json.dump(self.state, f, indent=2, cls=StateEncoder)
 
     def process_event(self, event_data):
         """Processes an incoming event, handling duplicates, missing fields, and state updates."""
@@ -58,6 +111,7 @@ class FeatureBuilder:
         # 4. Simulate Optimistic Locking / Version Bump
         # In a real DynamoDB call, this would use: ConditionExpression="version = :expected_version"
         cust_state["version"] += 1
+        self.save_state()  # Simulate a PutItem to DynamoDB
 
     def get_features(self, customer_id):
         """Computes the 30-day window features for a customer based on their state."""
@@ -91,7 +145,7 @@ class FeatureBuilder:
 if __name__ == "__main__":
     builder = FeatureBuilder()
 
-    # Test with a mock stream
+    # Mock events to test various edge cases:
     mock_events = [
         # Standard event
         {"event_id": "1", "customer_id": "C1", "event_time": "2026-05-01T10:00:00Z", "amount": 100},

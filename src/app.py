@@ -32,6 +32,16 @@ def parse_args():
         type=str,
         help="Command to update the active_version.txt pointer and exit (supports 'latest' alias)."
     )
+    parser.add_argument(
+        "--replay",
+        action="store_true",
+        help="Destroy persistent state and rebuild it entirely from the event log."
+    )
+    parser.add_argument(
+        "--time-travel",
+        type=str,
+        help="ISO timestamp string (e.g., '2026-05-15T10:00:00Z'). Ignore events after this time."
+    )
     return parser.parse_args()
 
 def resolve_version_alias(version_input):
@@ -57,12 +67,10 @@ def main():
         model_path = os.path.join("artifacts", f"model_{target_version}.json")
         active_path = os.path.join("artifacts", "active_version.txt")
 
-        # Validate the model actually exists before updating the pointer
         if not os.path.exists(model_path):
             logger.error(f"Cannot set active model! File {model_path} does not exist.")
             sys.exit(1)
 
-        # Update the pointer
         with open(active_path, "w") as f:
             f.write(target_version)
 
@@ -71,13 +79,11 @@ def main():
 
     events_file = args.events
 
-    # Temporary Override (Does not change active_version.txt)
     if args.model_version:
         target_version = resolve_version_alias(args.model_version)
         os.environ["MODEL_VERSION"] = target_version
         logger.info(f"Temporary override flag detected. Using model version: {target_version}")
 
-    # Force Retrain Logic
     if args.retrain:
         logger.info("Manual retrain flag detected. Forcing model offline training...")
         train_model()
@@ -86,10 +92,21 @@ def main():
         logger.error(f"Event file {events_file} not found. Please provide a valid path.")
         sys.exit(1)
 
+    if args.time_travel and not args.replay:
+        logger.error("Data Leakage Prevention: You cannot use --time-travel without --replay. The existing state contains future events. Exiting.")
+        sys.exit(1) # These flags could be merged
+
     logger.info(f"Starting pipeline using stream from: {events_file}")
 
-    # 1. Initialize Feature Builder
-    builder = FeatureBuilder()
+    # Replay Logic (State Destruction)
+    state_file_path = "artifacts/state.json"
+    if args.replay:
+        logger.warning("REPLAY MODE: Destroying current persistent state...")
+        if os.path.exists(state_file_path):
+            os.remove(state_file_path)
+        logger.info("Rebuilding state from the event log from scratch.")
+
+    builder = FeatureBuilder(state_file=state_file_path)
     active_customers = set()
 
     # 2. Process the stream
@@ -98,7 +115,14 @@ def main():
         for line in f:
             if not line.strip():
                 continue
+
             event = json.loads(line)
+
+            # Time Travel Logic
+            event_ts_val = event["event_time"]
+            if args.time_travel and event_ts_val > args.time_travel:
+                continue
+
             builder.process_event(event)
             active_customers.add(event["customer_id"])
 
@@ -112,7 +136,7 @@ def main():
 
     # 4. Generate Scores
     if not feature_updates:
-        logger.warning("No features generated. Exiting.")
+        logger.warning("No features generated (Check your time-travel timestamp!). Exiting.")
         sys.exit(0)
 
     logger.info("Generating predictions...")
